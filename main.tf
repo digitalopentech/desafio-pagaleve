@@ -38,10 +38,10 @@ resource "aws_dynamodb_table" "orders_table" {
   billing_mode   = "PROVISIONED"
   read_capacity  = 20
   write_capacity = 20
-  hash_key       = "orderId"
+  hash_key       = "orderid"
 
   attribute {
-    name = "orderId"
+    name = "orderid"
     type = "S"
   }
   stream_enabled   = true
@@ -154,6 +154,43 @@ resource "aws_lambda_event_source_mapping" "dynamo_stream" {
   starting_position = "TRIM_HORIZON"
 }
 
+resource "aws_iam_role" "redshift_s3_access_role" {
+  name = "RedshiftS3AccessRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "redshift.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "redshift_s3_access_policy" {
+  name = "RedshiftS3AccessPolicy"
+  role = aws_iam_role.redshift_s3_access_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ],
+        Resource = ["arn:aws:s3:::teste-projeto-aws-20231027185799",
+                    "arn:aws:s3:::teste-projeto-aws-20231027185799/*"]
+      }
+    ]
+  })
+}
+
 # Redshift Cluster
 resource "aws_redshift_cluster" "default" {
   cluster_identifier  = "redshift-cluster-1"
@@ -163,4 +200,6 @@ resource "aws_redshift_cluster" "default" {
   node_type           = "dc2.large"
   cluster_type        = "single-node"
   skip_final_snapshot = true
+  iam_roles               = [aws_iam_role.redshift_s3_access_role.arn]
+  # Outras configurações conforme necessário
 }
