@@ -40,3 +40,41 @@ Este projeto estabelece uma infraestrutura na AWS para processar pedidos de form
 ## Conclusão
 
 Este projeto estabelece um pipeline robusto e escalável para processar pedidos usando uma combinação de serviços AWS. Ele garante que os pedidos sejam processados em tempo real, armazenados de forma segura e estejam disponíveis para análise usando ferramentas poderosas como o Redshift.
+
+Desenho de Arquitetura:
+VPC (Virtual Private Cloud): Isola recursos em uma rede virtual privada. É a base da infraestrutura de rede na AWS.
+
+Subnets: Segmentos da VPC que permitem organizar recursos em blocos de rede separados.
+
+S3 Bucket: Armazenamento escalável e de alta disponibilidade para qualquer tipo de dados. É usado para armazenar dados de entrada/saída para processamento.
+
+DynamoDB Table: Banco de dados NoSQL para armazenar e recuperar qualquer quantidade de dados. Ele é usado para armazenar pedidos com capacidade de leitura e escrita provisionada.
+
+IAM Role e Policies: Controlam as permissões para serviços da AWS interagirem entre si. No seu caso, são usadas para dar à função Lambda acesso ao S3, DynamoDB Streams e CloudWatch Logs.
+
+Lambda Functions:
+
+process_orders: Função para processar pedidos, provavelmente ativada pelo DynamoDB Streams.
+process_json_to_redshift: Função para processar arquivos JSON e mover os dados para o Redshift.
+Redshift Cluster: Serviço de data warehousing, que permite executar consultas complexas em grandes conjuntos de dados e é usado para análises.
+
+S3 Bucket Notifications e Lambda Triggers: Configurados para acionar funções Lambda com base em eventos específicos, como a criação de objetos no S3.
+
+Benefícios de Cada Tecnologia:
+AWS VPC: Provê um ambiente isolado na nuvem para hospedar seus recursos, melhorando a segurança e facilitando a gestão da rede.
+
+Subnets: Permitem a segmentação de recursos e controle de tráfego para melhor desempenho e segurança.
+
+S3 Bucket: Oferece durabilidade, disponibilidade e escalabilidade para armazenamento de dados, suportando diversas cargas de trabalho de dados.
+
+DynamoDB: Oferece desempenho rápido e previsível com escalabilidade automática e suporte para modelos de dados flexíveis.
+
+IAM Role e Policies: Essencial para a segurança de identidade e acessos, assegurando que apenas entidades autorizadas possam realizar operações específicas.
+
+Lambda Functions: Permitem a execução de código em resposta a eventos, sem a necessidade de provisionar ou gerenciar servidores, facilitando operações e reduzindo custos.
+
+Redshift: Facilita análises rápidas e complexas de grandes conjuntos de dados, fornecendo insights de negócios valiosos.
+
+S3 Bucket Notifications e Lambda Triggers: Automatizam o workflow de processamento de dados ao reagir a eventos de criação de arquivos, tornando o sistema mais eficiente e responsivo.
+
+A arquitetura descrita é fortemente orientada a eventos, aproveitando as capacidades serverless da AWS para processamento de dados em tempo real e análise. Cada tecnologia é escolhida por sua escalabilidade, desempenho e facilidade de integração em um ecossistema AWS.
