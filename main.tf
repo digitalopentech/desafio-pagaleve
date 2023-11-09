@@ -203,3 +203,101 @@ resource "aws_redshift_cluster" "default" {
   iam_roles               = [aws_iam_role.redshift_s3_access_role.arn]
   # Outras configurações conforme necessário
 }
+
+resource "aws_iam_role" "lambda_exec_role" {
+  name = "lambda_exec_role_for_redshift"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        },
+      },
+    ]
+  })
+}
+
+resource "aws_iam_policy" "lambda_redshift_policy" {
+  name        = "lambda_policy_for_redshift"
+  description = "IAM policy for Lambda to interact with Redshift"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "redshift:GetClusterCredentials",
+          "redshift:DescribeClusters",
+          "redshift:ExecuteStatement",
+        ],
+        Effect   = "Allow",
+        Resource = "*",
+      },
+      {
+        Action = [
+          "s3:GetObject",
+        ],
+        Effect   = "Allow",
+        Resource = "arn:aws:s3:::teste-projeto-aws-20231027185799/orders/*",
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_redshift_attach" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = aws_iam_policy.lambda_redshift_policy.arn
+}
+
+resource "aws_lambda_function" "process_json_to_redshift" {
+  function_name = "process_json_to_redshift"
+  role          = aws_iam_role.lambda_exec_role.arn
+
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.8"
+
+  filename         = "lambda_function_redshift.zip"
+  source_code_hash = filebase64sha256("lambda_function_redshift.zip")
+
+  timeout     = 60
+  memory_size = 128
+
+  environment {
+    variables = {
+      REDSHIFT_CLUSTER_IDENTIFIER = "redshift-cluster-1"
+      REDSHIFT_DATABASE           = "mydb"
+      REDSHIFT_USER               = "admin"
+    }
+  }
+}
+
+resource "aws_s3_bucket_notification" "bucket_notification" {
+  bucket = aws_s3_bucket.data_bucket.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.process_json_to_redshift.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "orders/"
+    filter_suffix       = ".json"
+  }
+}
+
+
+resource "aws_lambda_permission" "allow_bucket" {
+  statement_id  = "AllowExecutionFromS3Bucket"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.process_json_to_redshift.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.data_bucket.arn
+}
+
+resource "aws_lambda_event_source_mapping" "s3_trigger_for_redshift" {
+  function_name      = aws_lambda_function.process_json_to_redshift.function_name
+  event_source_arn   = aws_s3_bucket.data_bucket.arn
+  starting_position  = "LATEST" # This attribute is also incorrect for S3 event source mappings
+  # Remove filter_prefix and filter_suffix from this resource
+}
